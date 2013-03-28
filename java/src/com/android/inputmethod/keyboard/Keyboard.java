@@ -253,4 +253,12 @@ public class Keyboard {
         default: return null;
         }
     }
+
+    /* add by Gary. start {{----------------------------------- */
+    /* 2012-4-1 */
+    /* make LatinIME support key operations */
+    public List<Key> getKeys() {
+        return mKeys;
+    }
+    /* add by Gary. end   -----------------------------------}} */
 }

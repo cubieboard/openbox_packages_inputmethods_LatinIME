@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.os.Message;
 import android.os.SystemClock;
 import android.util.AttributeSet;
@@ -44,7 +45,16 @@ import com.android.inputmethod.latin.StaticInnerHandlerWrapper;
 import com.android.inputmethod.latin.Utils;
 
 import java.util.WeakHashMap;
+import java.util.List;
 
+/* add by Gary. start {{----------------------------------- */
+/* 2012-4-1 */
+/* make LatinIME support key operations */
+import android.graphics.Rect;
+import android.graphics.Color;
+import android.graphics.Paint.Style;
+import java.util.ArrayList;
+/* add by Gary. end   -----------------------------------}} */
 /**
  * A view that is responsible for detecting key presses and touch movements.
  *
@@ -84,6 +94,12 @@ public class LatinKeyboardView extends KeyboardView implements PointerTracker.Ke
     protected GestureDetector mGestureDetector;
 
     private final KeyTimerHandler mKeyTimerHandler = new KeyTimerHandler(this);
+
+    /* add by Gary. start {{----------------------------------- */
+    /* 2012-4-1 */
+    /* make LatinIME support key operations */
+    private int mLastKeyIndex = 0;
+    /* add by Gary. end   -----------------------------------}} */
 
     private static class KeyTimerHandler extends StaticInnerHandlerWrapper<LatinKeyboardView>
             implements TimerProxy {
@@ -663,4 +679,38 @@ public class LatinKeyboardView extends KeyboardView implements PointerTracker.Ke
         // Reflection doesn't support calling superclass methods.
         return false;
     }
+
+    /* add by Gary. start {{----------------------------------- */
+    /* 2012-4-1 */
+    /* make LatinIME support key operations */
+    @Override
+    public void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        Keyboard currentKeyboard = getKeyboard();
+        List<Key> keys = currentKeyboard.getKeys();
+        Paint p = new Paint();
+        p.setColor(Color.GREEN);
+        p.setStyle(Style.STROKE);
+        p.setStrokeWidth(3.75f);
+        if(mLastKeyIndex >= keys.size())
+            mLastKeyIndex = 0;
+        Key focusedKey = keys.get(mLastKeyIndex);
+        Rect rect = new Rect(
+                focusedKey.mX, focusedKey.mY + 4,
+                focusedKey.mX + focusedKey.mWidth, 
+                focusedKey.mY + focusedKey.mHeight
+            );
+        canvas.drawRect(rect, p);
+    }
+    
+    /** provide mLastKeyIndex access */
+    public int getLastKeyIndex() {
+        return mLastKeyIndex;
+    }
+    
+    /** set key index */
+    public void setLastKeyIndex(int index) {
+        mLastKeyIndex = index;
+    }
+    /* add by Gary. end   -----------------------------------}} */
 }

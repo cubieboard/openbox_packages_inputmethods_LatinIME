@@ -40,6 +40,7 @@ import android.util.PrintWriterPrinter;
 import android.util.Printer;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -69,7 +70,14 @@ import com.android.inputmethod.keyboard.LatinKeyboardView;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Locale;
+
+/* add by Gary. start {{----------------------------------- */
+/* 2012-4-1 */
+/* make LatinIME support key operations */
+//import android.inputmethodservice.Keyboard.Key;
+/* add by Gary. end   -----------------------------------}} */
 
 /**
  * Input method implementation for Qwerty'ish keyboard.
@@ -231,6 +239,30 @@ public class LatinIME extends InputMethodServiceCompatWrapper implements Keyboar
 
     private final ComposingStateManager mComposingStateManager =
             ComposingStateManager.getInstance();
+
+    /* add by Gary. start {{----------------------------------- */
+    /* 2012-4-1 */
+    /* make LatinIME support key operations */
+    private int mCurKeyboardKeyNums;
+    private Keyboard mCurrentKeyboard;
+    private List<Key> mKeys;
+    private int mLastKeyIndex = 0;
+	private int mPreKeyIndex = -1;
+    private LatinKeyboardView mInputView;
+    
+    private boolean setFields() {
+        mInputView = mKeyboardSwitcher.getKeyboardView();
+        if(mInputView == null || !mInputView.isShown())
+            return false;
+        
+        mCurrentKeyboard = mInputView.getKeyboard();
+        mKeys = mCurrentKeyboard.getKeys();
+        mCurKeyboardKeyNums = mKeys.size();
+        mLastKeyIndex = mInputView.getLastKeyIndex();
+        
+        return true;
+    }
+    /* add by Gary. end   -----------------------------------}} */
 
     public final UIHandler mHandler = new UIHandler(this);
 
@@ -1113,6 +1145,147 @@ public class LatinIME extends InputMethodServiceCompatWrapper implements Keyboar
                 }
             }
             break;
+            /* modified by Gary. start {{----------------------------------- */
+            /* 2012-4-1 */
+            /* make LatinIME support key operations */
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+//                // If tutorial is visible, don't allow dpad to work
+//                if (mTutorial != null) {
+//                    return true;
+//                }
+                
+                if(!setFields())
+                    break;
+                    
+                if (mLastKeyIndex >= mCurKeyboardKeyNums - 1) {
+                    mInputView.setLastKeyIndex(0);
+                } else {
+                    int[] nearestKeyIndices = mCurrentKeyboard.getNearestKeys(
+                            mKeys.get(mLastKeyIndex).mX, mKeys.get(mLastKeyIndex).mY);
+                    
+                    for (int index : nearestKeyIndices) {
+                        if (mLastKeyIndex < index) {
+                            Key nearKey = mKeys.get(index);
+                            Key lastKey = mKeys.get(mLastKeyIndex);
+                            if (
+                                    ((lastKey.mX >= nearKey.mX) // left side compare
+                                      && (lastKey.mX < (nearKey.mX + nearKey.mWidth)))
+                                  || (((lastKey.mX + lastKey.mWidth) > nearKey.mX) // right side compare
+                                       && ((lastKey.mX + lastKey.mWidth) <= (nearKey.mX + nearKey.mWidth)))
+                                ) 
+                            {
+                                mInputView.setLastKeyIndex(index);
+                                break;
+                            } 
+                        } 
+                    }// end for loop
+                    
+                }
+                mInputView.invalidate();
+
+                return true;
+            
+            // up direction
+            case KeyEvent.KEYCODE_DPAD_UP:
+//                // If tutorial is visible, don't allow dpad to work
+//                if (mTutorial != null) {
+//                    return true;
+//                }
+                
+                if(!setFields())
+                    break;
+                    
+                if (mLastKeyIndex <= 0) {
+                    mInputView.setLastKeyIndex(mCurKeyboardKeyNums - 1); 
+                } else {
+                    int[] nearestKeyIndices = mCurrentKeyboard.getNearestKeys(
+                            mKeys.get(mLastKeyIndex).mX, mKeys.get(mLastKeyIndex).mY);
+                    
+                    for (int i = nearestKeyIndices.length - 1; i >= 0; i--) {
+                        int index = nearestKeyIndices[i];
+                        if (mLastKeyIndex > index) {
+                            Key nearKey = mKeys.get(index);// get the next key
+                            Key nextNearKey = mKeys.get(index + 1);
+                            Key lastKey = mKeys.get(mLastKeyIndex);// get current displayed
+                            if (    
+                                    ((lastKey.mX >= nearKey.mX) && 
+                                        (lastKey.mX < (nearKey.mX + nearKey.mWidth)) &&
+                                        (((lastKey.mX + lastKey.mWidth) <= (nextNearKey.mX + nextNearKey.mWidth)) 
+                                            || ((lastKey.mX + lastKey.mWidth) > nextNearKey.mX))) 
+                                ) 
+                            {
+                                mInputView.setLastKeyIndex(index);
+                                break;
+                            } 
+                        } 
+                    }// end for loop
+                }
+                mInputView.invalidate();
+
+                return true;
+            
+            // left direction
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+//                // If tutorial is visible, don't allow dpad to work
+//                if (mTutorial != null) {
+//                    return true;
+//                }
+                
+                if(!setFields())
+                    break;
+                    
+                if (mLastKeyIndex <= 0) {
+                    mInputView.setLastKeyIndex(mCurKeyboardKeyNums - 1);
+                } else {
+                    mLastKeyIndex--;
+                    mInputView.setLastKeyIndex(mLastKeyIndex);
+                }
+                mInputView.invalidate();
+
+                return true;
+            
+            // right direction
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+//                // If tutorial is visible, don't allow dpad to work
+//                if (mTutorial != null) {
+//                    return true;
+//                }
+                
+                if(!setFields())
+                    break;
+                    
+                if (mLastKeyIndex >= mCurKeyboardKeyNums - 1) {
+                    mInputView.setLastKeyIndex(0);
+                } else {
+                    mLastKeyIndex++;
+                    mInputView.setLastKeyIndex(mLastKeyIndex);
+                }
+                mInputView.invalidate();
+                
+                return true;
+            
+            // DPAD_CENTER key
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+//                // If tutorial is visible, don't allow dpad to work
+//                if (mTutorial != null) {
+//                    return true;
+//                }
+                
+                if(!setFields())
+                    break;
+                if(mPreKeyIndex == mLastKeyIndex)
+					return true;
+				mPreKeyIndex = mLastKeyIndex;
+                Key key = mKeys.get(mLastKeyIndex);
+
+				/* add by chenjd,chenjd@allwinnertech.com,20120502
+				* simulate the touch event
+				*/
+				MotionEvent me = MotionEvent.obtain(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, key.mX, key.mY, 0);
+				mInputView.onTouchEvent(me);
+                
+                return true;
+            /* modified by Gary. end   -----------------------------------}} */
         }
         return super.onKeyDown(keyCode, event);
     }
@@ -1137,6 +1310,14 @@ public class LatinIME extends InputMethodServiceCompatWrapper implements Keyboar
                 return true;
             }
             break;
+        case KeyEvent.KEYCODE_DPAD_CENTER:
+        	 if(!setFields())
+                 break;
+			 mPreKeyIndex = -1;
+             Key key = mKeys.get(mLastKeyIndex);
+			 MotionEvent me = MotionEvent.obtain(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, key.mX, key.mY, 0);
+			 mInputView.onTouchEvent(me);
+			 break;	
         }
         return super.onKeyUp(keyCode, event);
     }
